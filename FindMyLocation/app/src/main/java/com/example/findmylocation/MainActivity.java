@@ -10,7 +10,9 @@ import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
+import android.location.LocationListener;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -20,8 +22,10 @@ import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.MapFragment;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
@@ -31,130 +35,67 @@ import com.google.android.gms.tasks.Task;
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+
+import static com.google.android.gms.maps.GoogleMap.*;
 
 public class MainActivity extends FragmentActivity implements OnMapReadyCallback {
-Location currentLocation;
-FusedLocationProviderClient fusedLocationProviderClient;
-    TextView text;
-    Button btnAdr;
-
-
-
-private  static final  int REQUEST_CODE =100;
+    SupportMapFragment mapFragment;
+    private  GoogleMap.OnCameraIdleListener onCameraIdleListener;
+    private TextView resultText;
+    private GoogleMap mMap;
+private  Button btnAdr;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
-
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        text = findViewById(R.id.text);
+        resultText = findViewById(R.id.text);
         btnAdr = findViewById(R.id.btnAdr);
-        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
-        fetchLastLocation();
-        displayLocation();
-
-
-
-
+        mapFragment =(SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.map);
+        mapFragment.getMapAsync(this);
+        configureCameraIdle();
     }
 
-    private void displayLocation() {
-
-
-
-            btnAdr.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (ActivityCompat.checkSelfPermission(MainActivity.this,Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED){
-                        getLocation();
-                    }else{
-                        ActivityCompat.requestPermissions(MainActivity.this,new String[]{Manifest.permission.ACCESS_FINE_LOCATION},44);
-                    }
-
-                }
-            });
-
-
-
-
-    }
-
-    private void getLocation() {
-        fusedLocationProviderClient.getLastLocation().addOnCompleteListener(new OnCompleteListener<Location>() {
+    private void configureCameraIdle() {
+        onCameraIdleListener = new GoogleMap.OnCameraIdleListener() {
             @Override
-            public void onComplete(@NonNull Task<Location> task) {
-                Location location = task.getResult();
-                if(location != null){
+            public void onCameraIdle() {
+                LatLng latLng = mMap.getCameraPosition().target;
+                Geocoder geocoder = new Geocoder(MainActivity.this);
 
-                    try {
-                        Geocoder geocoder = new Geocoder(MainActivity.this,Locale.getDefault());
+                try {
+                    List<Address> addressList = geocoder.getFromLocation(latLng.latitude, latLng.longitude, 1);
+                    if (addressList != null && addressList.size() > 0) {
+                      final   String locality = addressList.get(0).getAddressLine(0);
+                        final String country = addressList.get(0).getCountryName();
+                        if (!locality.isEmpty() && !country.isEmpty()) {
+                            btnAdr.setOnClickListener(new View.OnClickListener() {
+                                @Override
+                                public void onClick(View v) {
+                                    resultText.setText(locality + " " + country);
 
-                        List<Address>addresses = geocoder.getFromLocation(
-                                location.getLatitude(),location.getLongitude(),1
-                        );
-                        String address = addresses.get(0).getAddressLine(0);
-
-
-                        final String fullAdress =  address;
-                        text.setText(fullAdress);
-
-
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                                }
+                            });
+                        }
                     }
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
             }
-        });
+        };
     }
 
-    private void fetchLastLocation() {
-        if(ActivityCompat.checkSelfPermission(
-                this, Manifest.permission.ACCESS_FINE_LOCATION)!= PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
-                        this,Manifest.permission.ACCESS_COARSE_LOCATION)!= PackageManager.PERMISSION_GRANTED){
-           ActivityCompat.requestPermissions(this,new String[]
-                   {Manifest.permission.ACCESS_FINE_LOCATION},REQUEST_CODE);
-            return;
-        }
 
-    Task<Location> task = fusedLocationProviderClient.getLastLocation();
-    task.addOnSuccessListener(new OnSuccessListener<Location>() {
-        @Override
-        public void onSuccess(Location location) {
-            if(location != null){
-                currentLocation = location;
-                Toast.makeText(getApplicationContext(),currentLocation.getLatitude()
-                +""+currentLocation.getLatitude(),Toast.LENGTH_SHORT).show();
-                SupportMapFragment supportMapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.google_map);
-                assert  supportMapFragment !=null;
-                supportMapFragment.getMapAsync(MainActivity.this);
-
-            }
-        }
-
-
-
-    });
-    }
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
-        LatLng latLng = new LatLng(currentLocation.getLatitude(),currentLocation.getLatitude());
-        MarkerOptions markerOptions = new MarkerOptions().position(latLng).title("Hey bro,I am here");
-        googleMap.animateCamera(CameraUpdateFactory.newLatLng(latLng));
-        googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng,5));
-        googleMap.addMarker(markerOptions);
+        mMap = googleMap;
+        mMap.setOnCameraIdleListener(onCameraIdleListener);
 
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        switch (requestCode){
-            case  REQUEST_CODE:
-                if (grantResults.length>0 && grantResults[0]==PackageManager.PERMISSION_GRANTED){
-                    fetchLastLocation();
-                }
-                break;
-        }
+//        LatLng sydney = new LatLng(-34, 151);
+//        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
+//        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
     }
 }

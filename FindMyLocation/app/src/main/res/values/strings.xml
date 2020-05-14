@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">FindMyLocation</string>
-    <string name = "map_key" translatable="false">AlzaSyB)76j-cCgt5owlvVVl4uJjlquqUoRHZc</string>
+    <string name="map_key" translatable="false">AIzaSyBDbuNQ48u-pEToBenmu8NajwrRzD70_LU</string>
+    <string name="title_activity_my_map">Map</string>
 </resources>
